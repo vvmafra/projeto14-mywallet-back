@@ -33,9 +33,15 @@ const userSchema = joi.object({
     passwordConfirmation: joi.string().min(3).required()
 })
 
+const loginSchema = joi.object({
+    email: joi.string().email().required(),
+    password: joi.string().min(3).required(),
+})
+
+
+
 app.post("/cadastro", async (req, res) => {
     const { name, email, password, passwordConfirmation } = req.body
-
     const validation = userSchema.validate(req.body, {abortEarly: false})
 
     if (validation.error) {
@@ -58,6 +64,33 @@ app.post("/cadastro", async (req, res) => {
     catch (err){
         res.status(500).send(err.message)
     }
+
+})
+
+app.post("/", async (req, res) => {
+    const { email, password } = req.body
+    const validation = loginSchema.validate(req.body, {abortEarly: false})
+
+      if (validation.error) {
+        const errors = validation.error.details.map((det) => det.message)
+        return res.status(422).send(errors)
+    }
+
+    try {
+        const username = await db.collection("users").findOne({email})
+        if(!username) return res.status(404).send("User not found")
+
+        const checkPassword = bcrypt.compareSync(password, username.password)
+        if(!checkPassword) return res.status(401).send("Password does not match")
+
+        const token = uuid()
+        await db.collection("sessions").insertOne({token, idUser: username._id})
+        res.status(200).send(token)
+    }
+    catch {
+        res.sendStatus(500)
+    }
+
 
 })
 
