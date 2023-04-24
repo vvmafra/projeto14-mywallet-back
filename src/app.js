@@ -5,6 +5,7 @@ import express from "express"
 import joi from "joi"
 import { MongoClient, ObjectId } from "mongodb"
 import { v4 as uuid} from "uuid"
+import dayjs from "dayjs"
 
 //Server Creation
 
@@ -36,6 +37,12 @@ const userSchema = joi.object({
 const loginSchema = joi.object({
     email: joi.string().email().required(),
     password: joi.string().min(3).required(),
+})
+
+const transactionSchema = joi.object({
+    amount: joi.number().required().positive().precision(2),
+    description: joi.string().required(),
+    typeTransaction: joi.string().required()
 })
 
 
@@ -94,6 +101,52 @@ app.post("/", async (req, res) => {
 
 })
 
+app.post("/nova-transacao/:tipo", async (req, res) => {
+    const { amount, description } = req.body
+    const { tipo: typeTransaction } = req.params
+    const id = res.locals.id;
+
+    const validation = transactionSchema.validate(req.body, {abortEarly: false})
+
+    if (validation.error) {
+        const errors = validation.error.details.map((det) => det.message)
+        return res.status(422).send(errors)
+    }
+
+    try {
+        await db.collection("transactions").insertOne({
+            idUser: id,
+            amount: Number(amount).toFixed(2),
+            description,
+            typeTransaction,
+            data: dayjs().format("DD/MM")
+        })
+        return res.status(201).send("Added transaction sucessfully")
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
+
+})
+
+app.get("/home", async (req, res) => {
+    const { authorization } = req.headers
+    const token = authorization?.replace("Bearer ", "")
+
+    if (!token) return res.status(401).send("You don't have authorization to check those transactions")
+
+
+    try {
+        const sessions = await db.collection("sessions").findOne({token})
+
+        if (!sessions) return res.sendStatus(401)
+
+        const transactions = await db.collection("transactions").find({idUser: sessions.idUser}).toArray()
+        res.send(transactions)
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
+
+})
 
 
 
