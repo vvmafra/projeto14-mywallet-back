@@ -6,7 +6,7 @@ import validateToken from "../middlewares/validateToken.middleware.js"
 
 const transactionRouter = Router()
 
-transactionRouter.post("/nova-transacao/:tipo", validateSchema(transactionSchema),validateToken, newTransaction)
+transactionRouter.post("/transactions", validateSchema(transactionSchema),validateToken, newTransaction)
 
 transactionRouter.get("/transactions", validateToken, getTransactions)
 
